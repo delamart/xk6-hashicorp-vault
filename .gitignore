@@ -20,5 +20,5 @@
 # Go workspace file
 go.work
 
+# xk6 build target
 /k6
-/test.js

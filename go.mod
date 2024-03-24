@@ -1,4 +1,4 @@
-module xk6-hashicorp-vault
+module github.com/delamart/xk6-hashicorp-vault
 
 go 1.22.1
 
