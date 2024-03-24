@@ -1,5 +1,5 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/delamart/xk6-hashicorp-vault.svg)](https://pkg.go.dev/github.com/delamart/xk6-hashicorp-vault)
-[![Version Badge](https://img.shields.io/github/v/release/grafana/xk6-hashicorp-vault?style=flat-square)](https://github.com/delamart/xk6-hashicorp-vault/releases)
+[![Version Badge](https://img.shields.io/github/v/release/delamart/xk6-hashicorp-vault?style=flat-square)](https://github.com/delamart/xk6-hashicorp-vault/releases)
 
 # xk6-hashicorp-vault
 A k6 extension for interacting with Hashicorp Vault servers while testing. Mostly a wrapper for [vault-client-go](https://github.com/hashicorp/vault-client-go).
