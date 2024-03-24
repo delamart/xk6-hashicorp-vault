@@ -3,6 +3,7 @@ module xk6-hashicorp-vault
 go 1.22.1
 
 require (
+	github.com/dop251/goja v0.0.0-20231027120936-b396bb4c349d
 	github.com/hashicorp/vault-client-go v0.4.3
 	go.k6.io/k6 v0.49.0
 )
@@ -10,7 +11,6 @@ require (
 require (
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/dlclark/regexp2 v1.9.0 // indirect
-	github.com/dop251/goja v0.0.0-20231027120936-b396bb4c349d // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

@@ -1,8 +1,9 @@
 package vault
 
 import (
-	"errors"
+	"context"
 
+	"github.com/dop251/goja"
 	"github.com/hashicorp/vault-client-go"
 	"github.com/hashicorp/vault-client-go/schema"
 	"go.k6.io/k6/js/common"
@@ -23,8 +24,11 @@ type (
 	ModuleInstance struct {
 		// vu provides methods for accessing internal k6 objects for a VU
 		vu modules.VU
-		// vault is the exported type
-		vault *Vault
+	}
+
+	Vault struct {
+		client *vault.Client
+		ctx    context.Context
 	}
 )
 
@@ -39,55 +43,56 @@ func New() *RootModule {
 	return &RootModule{}
 }
 
-// NewModuleInstance implements the modules.Module interface returning a new instance for each VU.
+// NewModuleInstance implements the modules.Module interface to return
+// a new instance for each VU.
 func (*RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
 	return &ModuleInstance{
-		vu:    vu,
-		vault: &Vault{vu: vu},
+		vu: vu,
 	}
 }
 
-// Vault is the type for our custom API.
-type Vault struct {
-	vu     modules.VU // provides methods for accessing internal k6 objects
-	client *vault.Client
+// Exports implements the modules.Instance interface and returns the exports
+// of the JS module.
+func (mi *ModuleInstance) Exports() modules.Exports {
+	return modules.Exports{
+		Named: map[string]interface{}{
+			"Vault": mi.newClient,
+		},
+	}
 }
 
-// Vault setup client
-func (v *Vault) Setup(address string) {
-	var err error
-	runtime := v.vu.Runtime()
+func (mi *ModuleInstance) newClient(c goja.ConstructorCall) *goja.Object {
+	rt := mi.vu.Runtime()
+	ctx := mi.vu.Context()
+
+	v := &Vault{}
+	var address string
+	err := rt.ExportTo(c.Argument(0), &address)
+	if err != nil {
+		common.Throw(rt, err)
+	}
+	v.ctx = ctx
 	v.client, err = vault.New(
 		vault.WithAddress(address),
 	)
 	if err != nil {
-		common.Throw(runtime, err)
+		common.Throw(rt, err)
 	}
+	return rt.ToValue(v).ToObject(rt)
 }
 
-var ErrUninitializedClient = errors.New("Vault client has not been initialized, use setup(address)")
-
 // Vault set Token
-func (v *Vault) SetToken(token string) {
-	var err error
-	runtime := v.vu.Runtime()
-	if v.client == nil {
-		common.Throw(runtime, ErrUninitializedClient)
+func (v *Vault) SetToken(token string) error {
+	if err := v.client.SetToken(token); err != nil {
+		return err
 	}
-	if err = v.client.SetToken(token); err != nil {
-		common.Throw(runtime, err)
-	}
+	return nil
 }
 
 // Vault AppRole Login
-func (v *Vault) AppRoleLogin(roleid, secretid, mount string) {
-	ctx := v.vu.Context()
-	runtime := v.vu.Runtime()
-	if v.client == nil {
-		common.Throw(runtime, ErrUninitializedClient)
-	}
+func (v *Vault) AppRoleLogin(roleid, secretid, mount string) error {
 	r, err := v.client.Auth.AppRoleLogin(
-		ctx,
+		v.ctx,
 		schema.AppRoleLoginRequest{
 			RoleId:   roleid,
 			SecretId: secretid,
@@ -95,22 +100,18 @@ func (v *Vault) AppRoleLogin(roleid, secretid, mount string) {
 		vault.WithMountPath(mount),
 	)
 	if err != nil {
-		common.Throw(runtime, err)
+		return err
 	}
 	if err = v.client.SetToken(r.Auth.ClientToken); err != nil {
-		common.Throw(runtime, err)
+		return err
 	}
+	return nil
 }
 
 // Vault Kubernetes Login
-func (v *Vault) KubernetesLogin(jwt, role, mount string) {
-	ctx := v.vu.Context()
-	runtime := v.vu.Runtime()
-	if v.client == nil {
-		common.Throw(runtime, ErrUninitializedClient)
-	}
+func (v *Vault) KubernetesLogin(jwt, role, mount string) error {
 	r, err := v.client.Auth.KubernetesLogin(
-		ctx,
+		v.ctx,
 		schema.KubernetesLoginRequest{
 			Jwt:  jwt,
 			Role: role,
@@ -118,72 +119,58 @@ func (v *Vault) KubernetesLogin(jwt, role, mount string) {
 		vault.WithMountPath(mount),
 	)
 	if err != nil {
-		common.Throw(runtime, err)
+		return err
 	}
 	if err = v.client.SetToken(r.Auth.ClientToken); err != nil {
-		common.Throw(runtime, err)
+		return err
 	}
+	return nil
 }
 
 // Vault Read
-func (v *Vault) Read(path string) interface{} {
-	ctx := v.vu.Context()
-	runtime := v.vu.Runtime()
-	if v.client == nil {
-		common.Throw(runtime, ErrUninitializedClient)
-	}
-	r, err := v.client.Read(ctx, path)
+func (v *Vault) Read(path string) (interface{}, error) {
+	r, err := v.client.Read(v.ctx, path)
 	if err != nil {
-		common.Throw(runtime, err)
+		return false, err
 	}
-	return r.Data
+	if r != nil {
+		return r.Data, nil
+	}
+	return nil, nil
 }
 
 // Vault List
-func (v *Vault) List(path string) interface{} {
-	ctx := v.vu.Context()
-	runtime := v.vu.Runtime()
-	if v.client == nil {
-		common.Throw(runtime, ErrUninitializedClient)
-	}
-	r, err := v.client.List(ctx, path)
+func (v *Vault) List(path string) (interface{}, error) {
+	r, err := v.client.List(v.ctx, path)
 	if err != nil {
-		common.Throw(runtime, err)
+		return false, err
 	}
-	return r.Data
+	if r != nil {
+		return r.Data, nil
+	}
+	return nil, nil
 }
 
 // Vault Write
-func (v *Vault) Write(path string, body map[string]interface{}) interface{} {
-	ctx := v.vu.Context()
-	runtime := v.vu.Runtime()
-	if v.client == nil {
-		common.Throw(runtime, ErrUninitializedClient)
-	}
-	r, err := v.client.Write(ctx, path, body)
+func (v *Vault) Write(path string, body map[string]interface{}) (interface{}, error) {
+	r, err := v.client.Write(v.ctx, path, body)
 	if err != nil {
-		common.Throw(runtime, err)
+		return false, err
 	}
-	return r.Data
+	if r != nil {
+		return r.Data, nil
+	}
+	return nil, nil
 }
 
 // Vault Delete
-func (v *Vault) Delete(path string) interface{} {
-	ctx := v.vu.Context()
-	runtime := v.vu.Runtime()
-	if v.client == nil {
-		common.Throw(runtime, ErrUninitializedClient)
-	}
-	r, err := v.client.Delete(ctx, path)
+func (v *Vault) Delete(path string) (interface{}, error) {
+	r, err := v.client.Delete(v.ctx, path)
 	if err != nil {
-		common.Throw(runtime, err)
+		return false, err
 	}
-	return r.Data
-}
-
-// Exports implements the modules.Instance interface and returns the exported types for the JS module.
-func (mi *ModuleInstance) Exports() modules.Exports {
-	return modules.Exports{
-		Default: mi.vault,
+	if r != nil {
+		return r.Data, nil
 	}
+	return nil, nil
 }
