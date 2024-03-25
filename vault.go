@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"os"
 
 	"github.com/dop251/goja"
 	"github.com/hashicorp/vault-client-go"
@@ -91,6 +92,9 @@ func (v *Vault) SetToken(token string) error {
 
 // Vault AppRole Login
 func (v *Vault) AppRoleLogin(roleid, secretid, mount string) error {
+	if mount == "" {
+		mount = "approle"
+	}
 	r, err := v.client.Auth.AppRoleLogin(
 		v.ctx,
 		schema.AppRoleLoginRequest{
@@ -109,7 +113,17 @@ func (v *Vault) AppRoleLogin(roleid, secretid, mount string) error {
 }
 
 // Vault Kubernetes Login
-func (v *Vault) KubernetesLogin(jwt, role, mount string) error {
+func (v *Vault) KubernetesLogin(role, jwt, mount string) error {
+	if jwt == "" {
+		token, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+		if err != nil {
+			return err
+		}
+		jwt = string(token)
+	}
+	if mount == "" {
+		mount = "kubernetes"
+	}
 	r, err := v.client.Auth.KubernetesLogin(
 		v.ctx,
 		schema.KubernetesLoginRequest{
