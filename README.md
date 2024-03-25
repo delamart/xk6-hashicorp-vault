@@ -45,9 +45,9 @@ Using the `k6` binary with `xk6-hashicorp-vault`, run the k6 test as usual:
 
 * Create a new Vault instance which will create a vault client to a specific server url
 * Set the authentication using one of the three methods
-  1. `vault.setToken( token )`
-  2. `vault.AppRoleLogin( roleid, secretid, mount )`
-  3. `vault.KubernetesLogin( jwt, role, mount )`
+  * `vault.setToken( token )`
+  * `vault.AppRoleLogin( roleid, secretid, mount )` mount defaults to 'approle'
+  * `vault.KubernetesLogin( role, jwt, mount )` jwt defaults to the content of `/var/run/secrets/kubernetes.io/serviceaccount/token`, mount defaults to 'kubernetes'
 * Use the provided methods
   * `vault.read( path )`
   * `vault.write( path, data )`
